@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kampüs Altyapı Kusur Tespiti</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & Tokens ───────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0b0d14;
+  --surface:   #131520;
+  --surface2:  #1a1d2e;
+  --surface3:  #21243a;
+  --border:    #2c3050;
+  --border2:   #3d4268;
+
+  --accent:    #4f8ef7;
+  --accent-glow: rgba(79,142,247,.18);
+  --green:     #22c55e;
+  --yellow:    #f59e0b;
+  --red:       #ef4444;
+  --green-dim: rgba(34,197,94,.12);
+  --yellow-dim:rgba(245,158,11,.12);
+  --red-dim:   rgba(239,68,68,.12);
+
+  --text:      #e2e8f0;
+  --text2:     #94a3b8;
+  --text3:     #64748b;
+
+  --font:      'Inter', system-ui, sans-serif;
+  --mono:      'JetBrains Mono', monospace;
+  --r:         10px;
+  --r-lg:      16px;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* subtle dot-grid background */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: radial-gradient(circle, rgba(79,142,247,.06) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wrap { max-width: 1100px; margin: 0 auto; padding: 0 20px; position: relative; z-index: 1; }
+
+/* ── Scrollbar ────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ── Header ───────────────────────────────────────────────────────── */
+header {
+  padding: 28px 0 20px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 36px;
+}
+.header-row {
+  display: flex; align-items: center;
+  justify-content: space-between; gap: 16px; flex-wrap: wrap;
+}
+.brand { display: flex; align-items: center; gap: 14px; }
+.brand-icon {
+  width: 46px; height: 46px;
+  background: linear-gradient(135deg, var(--accent) 0%, #6d5bff 100%);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; flex-shrink: 0;
+  box-shadow: 0 4px 16px var(--accent-glow);
+}
+.brand-text h1 {
+  font-size: 18px; font-weight: 800;
+  color: var(--text); letter-spacing: -.3px;
+}
+.brand-text p { font-size: 12px; color: var(--text3); margin-top: 2px; }
+
+.model-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.pill {
+  font-size: 11px; font-family: var(--mono);
+  padding: 3px 10px; border-radius: 20px;
+  border: 1px solid var(--border);
+  color: var(--text3);
+}
+.pill.on { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+
+/* ── Conf slider (header right) ───────────────────────────────────── */
+.conf-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 12px 18px;
+  min-width: 240px;
+}
+.conf-label-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.conf-label-row span:first-child { font-size: 12px; font-weight: 600; color: var(--text2); }
+.conf-val {
+  font-family: var(--mono); font-size: 15px; font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-glow);
+  border: 1px solid var(--accent);
+  border-radius: 6px; padding: 2px 10px;
+  min-width: 54px; text-align: center;
+}
+input[type=range] {
+  -webkit-appearance: none; width: 100%; height: 4px;
+  background: var(--border2); border-radius: 2px; outline: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px;
+  background: var(--accent); border-radius: 50%;
+  box-shadow: 0 0 8px var(--accent-glow);
+  transition: transform .15s;
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+.conf-hint { font-size: 10px; color: var(--text3); margin-top: 6px; text-align: right; }
+
+/* ── Upload zone ──────────────────────────────────────────────────── */
+.upload-zone {
+  border: 2px dashed var(--border2);
+  border-radius: var(--r-lg);
+  padding: 52px 32px;
+  text-align: center; cursor: pointer;
+  background: var(--surface);
+  transition: all .25s;
+  position: relative; overflow: hidden;
+}
+.upload-zone::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(79,142,247,.05) 0%, transparent 70%);
+  pointer-events: none;
+}
+.upload-zone.drag-over {
+  border-color: var(--accent);
+  background: var(--surface2);
+  box-shadow: 0 0 40px var(--accent-glow);
+}
+.upload-icon { font-size: 38px; display: block; margin-bottom: 12px; }
+.upload-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+.upload-sub   { font-size: 13px; color: var(--text3); margin-bottom: 14px; }
+.upload-fmt   {
+  font-size: 11px; font-family: var(--mono);
+  color: var(--accent); background: var(--accent-glow);
+  border: 1px solid rgba(79,142,247,.3);
+  padding: 4px 14px; border-radius: 20px; display: inline-block;
+}
+#file-input { display: none; }
+
+/* ── File chips ───────────────────────────────────────────────────── */
+#file-list { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 12px;
+  font-size: 12px; animation: fadeUp .2s ease;
+}
+.chip-name { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text2); }
+.chip-rm { color: var(--text3); cursor: pointer; font-size: 16px; line-height: 1; transition: color .15s; }
+.chip-rm:hover { color: var(--red); }
+
+/* ── Analyze btn ──────────────────────────────────────────────────── */
+.btn-analyze {
+  display: block; width: 100%; margin-top: 20px;
+  padding: 15px;
+  background: linear-gradient(135deg, var(--accent) 0%, #6d5bff 100%);
+  color: #fff;
+  border: none; border-radius: var(--r);
+  font-family: var(--font); font-size: 15px; font-weight: 700;
+  cursor: pointer; letter-spacing: .3px;
+  transition: all .2s;
+  box-shadow: 0 4px 20px var(--accent-glow);
+}
+.btn-analyze:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(79,142,247,.35);
+}
+.btn-analyze:disabled { opacity: .35; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* ── Progress ─────────────────────────────────────────────────────── */
+#progress-section { display: none; margin: 28px 0; }
+.prog-label { font-size: 12px; color: var(--text3); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.spinner {
+  width: 13px; height: 13px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+  flex-shrink: 0;
+}
+.prog-bar-bg { background: var(--surface2); border-radius: 100px; height: 5px; overflow: hidden; }
+.prog-bar-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--accent), #6d5bff);
+  border-radius: 100px;
+  transition: width .35s ease;
+}
+
+/* ── Summary ──────────────────────────────────────────────────────── */
+#summary-section { display: none; margin-bottom: 28px; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 18px 14px;
+  text-align: center;
+  transition: border-color .2s, transform .2s;
+}
+.stat-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+.stat-val { font-size: 34px; font-weight: 800; line-height: 1; margin-bottom: 5px; }
+.stat-lbl { font-size: 11px; color: var(--text3); font-weight: 500; }
+.stat-card.blue   .stat-val { color: var(--accent); }
+.stat-card.red    .stat-val { color: var(--red); }
+.stat-card.yellow .stat-val { color: var(--yellow); }
+.stat-card.green  .stat-val { color: var(--green); }
+
+/* ── Export ───────────────────────────────────────────────────────── */
+#export-section { display: none; margin-bottom: 28px; }
+.section-title {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1.5px; color: var(--text3); margin-bottom: 14px;
+}
+.export-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn-exp {
+  display: flex; align-items: center; gap: 7px;
+  padding: 10px 18px; border-radius: 8px;
+  font-family: var(--mono); font-size: 12px; font-weight: 500;
+  cursor: pointer; text-decoration: none;
+  border: 1px solid var(--border);
+  background: var(--surface); color: var(--text2);
+  transition: all .2s;
+}
+.btn-exp:hover { border-color: var(--accent); color: var(--accent); background: var(--surface2); }
+.btn-exp.pdf:hover { border-color: var(--red); color: var(--red); }
+
+/* ── Results grid ─────────────────────────────────────────────────── */
+#results-section { display: none; margin-bottom: 60px; }
+.results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }
+
+.result-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  transition: transform .25s, box-shadow .25s;
+  animation: fadeUp .3s ease both;
+}
+.result-card:hover { transform: translateY(-4px); box-shadow: 0 16px 48px rgba(0,0,0,.5); }
+.result-card.kritik { border-left: 3px solid var(--red); }
+.result-card.orta   { border-left: 3px solid var(--yellow); }
+.result-card.saglam { border-left: 3px solid var(--green); }
+
+/* image */
+.card-img {
+  width: 100%; aspect-ratio: 4/3;
+  background: var(--surface2);
+  overflow: hidden; position: relative; cursor: pointer;
+}
+.card-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .4s; }
+.card-img:hover img { transform: scale(1.04); }
+.zoom-hint {
+  position: absolute; bottom: 8px; right: 8px;
+  background: rgba(0,0,0,.7); color: #fff;
+  font-size: 10px; padding: 3px 8px; border-radius: 4px;
+  opacity: 0; transition: opacity .2s;
+}
+.card-img:hover .zoom-hint { opacity: 1; }
+
+/* body */
+.card-body { padding: 16px; }
+.card-fname {
+  font-size: 12px; color: var(--text2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin-bottom: 12px;
+}
+
+/* score row */
+.score-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.score-num { font-size: 28px; font-weight: 800; line-height: 1; }
+.score-num.red    { color: var(--red); }
+.score-num.yellow { color: var(--yellow); }
+.score-num.green  { color: var(--green); }
+.score-denom { font-size: 13px; color: var(--text3); font-weight: 400; }
+
+/* score bar */
+.score-bar-bg { height: 4px; background: var(--surface3); border-radius: 2px; margin-bottom: 12px; }
+.score-bar-fill { height: 100%; border-radius: 2px; transition: width .6s ease; }
+.score-bar-fill.red    { background: var(--red); }
+.score-bar-fill.yellow { background: var(--yellow); }
+.score-bar-fill.green  { background: var(--green); }
+
+.status-badge {
+  font-size: 11px; font-weight: 600; padding: 4px 12px;
+  border-radius: 20px;
+}
+.status-badge.red    { background: var(--red-dim);    color: var(--red);    border: 1px solid rgba(239,68,68,.3); }
+.status-badge.yellow { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(245,158,11,.3); }
+.status-badge.green  { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(34,197,94,.3); }
+
+/* detections */
+.det-list { margin-bottom: 12px; }
+.det-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 10px;
+  background: var(--surface2);
+  border-radius: 6px; margin-bottom: 4px;
+  font-size: 11px;
+}
+.det-cls { font-weight: 600; }
+.det-cls.cukur          { color: #fb7185; }
+.det-cls.kirik_kaldirim { color: #60a5fa; }
+.det-conf { color: var(--text3); font-family: var(--mono); }
+.no-det { font-size: 11px; color: var(--text3); text-align: center; padding: 10px 0; }
+
+/* ── Feedback buttons ─────────────────────────────────────────────── */
+.feedback-row { display: flex; gap: 7px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--border); }
+.btn-fb {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; padding: 5px 11px; border-radius: 6px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text3); cursor: pointer; transition: all .2s; font-family: var(--font);
+}
+.btn-fb:hover.wrong-det    { border-color: var(--yellow); color: var(--yellow); background: var(--yellow-dim); }
+.btn-fb:hover.wrong-status { border-color: #a78bfa;       color: #a78bfa;       background: rgba(167,139,250,.1); }
+.btn-fb.sent { border-color: var(--green); color: var(--green); background: var(--green-dim); pointer-events: none; }
+
+/* ── Feedback modal ───────────────────────────────────────────────── */
+#fb-modal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.75); backdrop-filter: blur(4px);
+  z-index: 900;
+  align-items: center; justify-content: center;
+  padding: 16px;
+}
+#fb-modal.open { display: flex; }
+.fb-box {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-lg);
+  padding: 28px;
+  width: 100%; max-width: 440px;
+  animation: fadeUp .25s ease;
+}
+.fb-box h3 { font-size: 16px; font-weight: 700; margin-bottom: 18px; }
+.fb-field { margin-bottom: 14px; }
+.fb-field label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 6px; font-weight: 500; }
+.fb-field select, .fb-field textarea {
+  width: 100%; background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text);
+  font-family: var(--font); font-size: 13px;
+  padding: 9px 12px; outline: none;
+  transition: border-color .2s;
+}
+.fb-field select:focus, .fb-field textarea:focus { border-color: var(--accent); }
+.fb-field textarea { resize: vertical; min-height: 72px; }
+.fb-btns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+.btn-cancel {
+  padding: 9px 18px; border-radius: 8px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text2); font-family: var(--font); font-size: 13px;
+  cursor: pointer; transition: border-color .2s;
+}
+.btn-cancel:hover { border-color: var(--border2); }
+.btn-submit {
+  padding: 9px 22px; border-radius: 8px;
+  background: var(--accent); border: none;
+  color: #fff; font-family: var(--font); font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: opacity .2s;
+}
+.btn-submit:hover { opacity: .85; }
+
+/* ── History panel ────────────────────────────────────────────────── */
+#hist-toggle {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 50px;
+  padding: 10px 18px;
+  font-size: 12px; font-weight: 600; color: var(--text2);
+  cursor: pointer; display: flex; align-items: center; gap: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.4);
+  transition: all .2s; z-index: 800;
+}
+#hist-toggle:hover { border-color: var(--accent); color: var(--accent); }
+#hist-panel {
+  display: none; position: fixed; bottom: 76px; right: 24px;
+  width: 340px; max-height: 420px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0,0,0,.5);
+  z-index: 800;
+  animation: fadeUp .2s ease;
+}
+#hist-panel.open { display: flex; flex-direction: column; }
+.hist-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px; font-weight: 700;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.hist-list { overflow-y: auto; flex: 1; }
+.hist-item {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px; display: flex; justify-content: space-between; align-items: center;
+  cursor: pointer; transition: background .15s;
+}
+.hist-item:hover { background: var(--surface2); }
+.hist-sid { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+.hist-meta { font-size: 10px; color: var(--text3); margin-top: 2px; }
+.hist-badge {
+  font-size: 10px; padding: 2px 8px; border-radius: 10px;
+  background: var(--surface3); color: var(--text3);
+}
+
+/* ── Lightbox ─────────────────────────────────────────────────────── */
+#lightbox {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.92); z-index: 1000;
+  align-items: center; justify-content: center; padding: 24px;
+}
+#lightbox.open { display: flex; }
+#lightbox img {
+  max-width: 90vw; max-height: 90vh;
+  border-radius: 8px; box-shadow: 0 32px 80px rgba(0,0,0,.7);
+}
+#lb-close {
+  position: fixed; top: 20px; right: 24px;
+  font-size: 30px; color: #fff; cursor: pointer;
+  background: none; border: none; opacity: .7; transition: opacity .2s;
+}
+#lb-close:hover { opacity: 1; }
+
+/* ── Error card ───────────────────────────────────────────────────── */
+.err-card {
+  background: var(--red-dim); border: 1px solid rgba(239,68,68,.3);
+  border-radius: var(--r); padding: 14px;
+  font-size: 12px; color: var(--red);
+}
+
+/* ── Animations ───────────────────────────────────────────────────── */
+@keyframes fadeUp { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: none; } }
+@keyframes spin   { to   { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- ── Header ── -->
+  <header>
+    <div class="header-row">
+      <div class="brand">
+        <div class="brand-icon">🔍</div>
+        <div class="brand-text">
+          <h1>Kampüs Altyapı Kusur Tespiti</h1>
+          <p>YOLOv8 tabanlı otomatik tespit ve raporlama sistemi</p>
+          <div class="model-pills">
+            <span class="pill on">● best_cukur.pt</span>
+            <span class="pill on">● best_kaldirim.pt</span>
+            <span class="pill on" id="pill-conf">conf ≥ 0.25</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conf panel -->
+      <div class="conf-panel">
+        <div class="conf-label-row">
+          <span>Güven Eşiği (Conf)</span>
+          <span class="conf-val" id="conf-display">0.25</span>
+        </div>
+        <input type="range" id="conf-slider" min="5" max="90" value="25" step="1">
+        <div class="conf-hint">Düşük → daha fazla tespit &nbsp;|&nbsp; Yüksek → daha seçici</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Upload ── -->
+  <div style="margin-bottom:28px">
+    <div class="upload-zone" id="drop-zone">
+      <span class="upload-icon">📂</span>
+      <div class="upload-title">Fotoğrafları buraya sürükleyin</div>
+      <div class="upload-sub">veya tıklayarak dosya seçin</div>
+      <span class="upload-fmt">JPG · PNG · BMP · WEBP</span>
+      <input type="file" id="file-input" multiple accept=".jpg,.jpeg,.png,.bmp,.webp">
+    </div>
+    <div id="file-list"></div>
+    <button class="btn-analyze" id="btn-analyze" disabled>⚡ Analizi Başlat</button>
+  </div>
+
+  <!-- ── Progress ── -->
+  <div id="progress-section">
+    <div class="prog-label"><div class="spinner"></div><span id="prog-text">Analiz ediliyor...</span></div>
+    <div class="prog-bar-bg"><div class="prog-bar-fill" id="prog-bar"></div></div>
+  </div>
+
+  <!-- ── Summary ── -->
+  <div id="summary-section">
+    <div class="section-title">Analiz Özeti</div>
+    <div class="stat-grid">
+      <div class="stat-card blue">  <div class="stat-val" id="s-total">0</div><div class="stat-lbl">Toplam Görüntü</div></div>
+      <div class="stat-card blue">  <div class="stat-val" id="s-dets">0</div> <div class="stat-lbl">Toplam Tespit</div></div>
+      <div class="stat-card red">   <div class="stat-val" id="s-kritik">0</div><div class="stat-lbl">🔴 Kritik</div></div>
+      <div class="stat-card yellow"> <div class="stat-val" id="s-orta">0</div> <div class="stat-lbl">🟡 Orta</div></div>
+      <div class="stat-card green">  <div class="stat-val" id="s-saglam">0</div><div class="stat-lbl">🟢 Sağlam</div></div>
+    </div>
+  </div>
+
+  <!-- ── Export ── -->
+  <div id="export-section">
+    <div class="section-title">Raporu İndir</div>
+    <div class="export-row">
+      <a class="btn-exp" id="btn-csv"   href="#">📄 CSV</a>
+      <a class="btn-exp" id="btn-excel" href="#">📊 Excel</a>
+      <a class="btn-exp pdf" id="btn-pdf" href="#">🖨 PDF Rapor</a>
+    </div>
+  </div>
+
+  <!-- ── Results ── -->
+  <div id="results-section">
+    <div class="section-title" style="margin-bottom:16px">Tespit Sonuçları</div>
+    <div class="results-grid" id="results-grid"></div>
+  </div>
+
+</div><!-- /wrap -->
+
+<!-- ── Feedback Modal ── -->
+<div id="fb-modal">
+  <div class="fb-box">
+    <h3 id="fb-title">Geri Bildirim</h3>
+
+    <div class="fb-field" id="fb-class-wrap" style="display:none">
+      <label>Doğru Sınıf</label>
+      <select id="fb-correct-class">
+        <option value="">— Seçin —</option>
+        <option value="cukur">cukur</option>
+        <option value="kirik_kaldirim">kirik_kaldirim</option>
+        <option value="yok">Tespit Yok (Yanlış Alarm)</option>
+      </select>
+    </div>
+
+    <div class="fb-field" id="fb-status-wrap" style="display:none">
+      <label>Doğru Durum Etiketi</label>
+      <select id="fb-correct-status">
+        <option value="">— Seçin —</option>
+        <option value="Sağlam">🟢 Sağlam</option>
+        <option value="Orta">🟡 Orta</option>
+        <option value="Kritik">🔴 Kritik</option>
+      </select>
+    </div>
+
+    <div class="fb-field">
+      <label>Not (isteğe bağlı)</label>
+      <textarea id="fb-note" placeholder="Ek açıklama..."></textarea>
+    </div>
+
+    <div class="fb-btns">
+      <button class="btn-cancel" id="fb-cancel">Vazgeç</button>
+      <button class="btn-submit" id="fb-submit">Gönder</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── History toggle ── -->
+<button id="hist-toggle">🗂 Geçmiş Oturumlar</button>
+<div id="hist-panel">
+  <div class="hist-header">
+    <span>Geçmiş Oturumlar</span>
+    <span id="hist-close" style="cursor:pointer;color:var(--text3);font-size:18px">✕</span>
+  </div>
+  <div class="hist-list" id="hist-list"></div>
+</div>
+
+<!-- ── Lightbox ── -->
+<div id="lightbox">
+  <button id="lb-close">✕</button>
+  <img id="lb-img" src="" alt="">
+</div>
+
+<script>
+/* ── State ───────────────────────────────────────────── */
+let selectedFiles  = [];
+let currentConf    = 0.25;
+let fbMeta         = {};   // {sessionId, filename, detIndex, detClass, type}
+
+/* ── Conf slider ─────────────────────────────────────── */
+const slider    = document.getElementById('conf-slider');
+const confDisp  = document.getElementById('conf-display');
+const pillConf  = document.getElementById('pill-conf');
+
+slider.addEventListener('input', () => {
+  currentConf = slider.value / 100;
+  const label = currentConf.toFixed(2);
+  confDisp.textContent = label;
+  pillConf.textContent = `conf ≥ ${label}`;
+});
+
+/* ── Upload ──────────────────────────────────────────── */
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const fileList  = document.getElementById('file-list');
+const btnAnalyze= document.getElementById('btn-analyze');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); addFiles([...e.dataTransfer.files]); });
+fileInput.addEventListener('change', () => addFiles([...fileInput.files]));
+
+function addFiles(files) {
+  const types = ['image/jpeg','image/png','image/bmp','image/webp'];
+  files.forEach(f => {
+    if (types.includes(f.type) && !selectedFiles.find(x => x.name === f.name && x.size === f.size))
+      selectedFiles.push(f);
+  });
+  renderFileList();
+}
+function removeFile(i) { selectedFiles.splice(i,1); renderFileList(); }
+function renderFileList() {
+  fileList.innerHTML = '';
+  selectedFiles.forEach((f,i) => {
+    const d = document.createElement('div');
+    d.className = 'chip';
+    d.innerHTML = `<span>🖼</span><span class="chip-name">${f.name}</span><span class="chip-rm" onclick="removeFile(${i})">×</span>`;
+    fileList.appendChild(d);
+  });
+  btnAnalyze.disabled = !selectedFiles.length;
+  btnAnalyze.textContent = selectedFiles.length
+    ? `⚡ ${selectedFiles.length} Görüntüyü Analiz Et`
+    : '⚡ Analizi Başlat';
+}
+
+/* ── Analyze ─────────────────────────────────────────── */
+btnAnalyze.addEventListener('click', async () => {
+  if (!selectedFiles.length) return;
+  btnAnalyze.disabled = true;
+
+  const progressSection = document.getElementById('progress-section');
+  const progBar  = document.getElementById('prog-bar');
+  const progText = document.getElementById('prog-text');
+
+  progressSection.style.display = 'block';
+  document.getElementById('summary-section').style.display = 'none';
+  document.getElementById('export-section').style.display  = 'none';
+  document.getElementById('results-section').style.display = 'none';
+  document.getElementById('results-grid').innerHTML = '';
+  progBar.style.width = '8%';
+  progText.textContent = `${selectedFiles.length} görüntü gönderiliyor...`;
+
+  const fd = new FormData();
+  selectedFiles.forEach(f => fd.append('images', f));
+  fd.append('conf', currentConf.toFixed(2));
+
+  try {
+    progBar.style.width = '30%';
+    progText.textContent = 'Modeller çalışıyor, lütfen bekleyin...';
+    const resp = await fetch('/analyze', { method:'POST', body: fd });
+    progBar.style.width = '85%';
+    if (!resp.ok) throw new Error('Sunucu hatası: ' + resp.status);
+    const data = await resp.json();
+    progBar.style.width = '100%';
+    progText.textContent = '✓ Tamamlandı!';
+    setTimeout(() => { progressSection.style.display = 'none'; }, 700);
+    renderResults(data);
+  } catch(err) {
+    progText.textContent = '❌ ' + err.message;
+    progBar.style.background = 'var(--red)';
+  } finally {
+    btnAnalyze.disabled = false;
+  }
+});
+
+/* ── Render results ──────────────────────────────────── */
+function renderResults(data) {
+  const results   = data.results;
+  const sessionId = data.session_id;
+  const confUsed  = data.conf_used || currentConf;
+
+  const totalDets = results.reduce((s,r) => s + (r.detections?.length||0), 0);
+  const kritik    = results.filter(r => r.status==='Kritik').length;
+  const orta      = results.filter(r => r.status==='Orta').length;
+  const saglam    = results.filter(r => r.status==='Sağlam').length;
+
+  document.getElementById('s-total').textContent  = results.length;
+  document.getElementById('s-dets').textContent   = totalDets;
+  document.getElementById('s-kritik').textContent = kritik;
+  document.getElementById('s-orta').textContent   = orta;
+  document.getElementById('s-saglam').textContent = saglam;
+  document.getElementById('summary-section').style.display = 'block';
+
+  document.getElementById('btn-csv').href   = `/export/csv/${sessionId}`;
+  document.getElementById('btn-excel').href = `/export/excel/${sessionId}`;
+  document.getElementById('btn-pdf').href   = `/export/pdf/${sessionId}`;
+  document.getElementById('export-section').style.display = 'block';
+
+  const grid = document.getElementById('results-grid');
+  results.forEach((r, idx) => {
+    const card = buildCard(r, sessionId, idx);
+    grid.appendChild(card);
+  });
+
+  document.getElementById('results-section').style.display = 'block';
+  document.getElementById('results-section').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function buildCard(r, sessionId, idx) {
+  const statusClass = r.status === 'Kritik' ? 'kritik' : r.status === 'Orta' ? 'orta' : 'saglam';
+  const colorKey    = r.status === 'Kritik' ? 'red'    : r.status === 'Orta' ? 'yellow' : 'green';
+  const barPct      = Math.round((r.damage_score / 10) * 100);
+
+  const card = document.createElement('div');
+  card.className = `result-card ${statusClass}`;
+  card.style.animationDelay = `${idx * 55}ms`;
+
+  if (r.error) {
+    card.innerHTML = `<div class="card-body"><div class="err-card">⚠️ ${r.filename}<br>${r.error}</div></div>`;
+    return card;
+  }
+
+  /* image */
+  let imgHtml = '';
+  if (r.annotated_image) {
+    const src = `data:image/jpeg;base64,${r.annotated_image}`;
+    imgHtml = `<div class="card-img" onclick="openLb('${src}')">
+      <img src="${src}" alt="${r.filename}" loading="lazy">
+      <span class="zoom-hint">🔍 Büyüt</span>
+    </div>`;
+  }
+
+  /* detection list */
+  let detsHtml = '<div class="det-list">';
+  if (r.detections && r.detections.length) {
+    r.detections.forEach((d, di) => {
+      const cls = d.class.replace('_','_');
+      detsHtml += `<div class="det-item">
+        <span class="det-cls ${d.class.replace('kirik_kaldirim','kirik_kaldirim')}">${d.class}</span>
+        <span class="det-conf">%${(d.confidence*100).toFixed(1)}</span>
+      </div>`;
+    });
+  } else {
+    detsHtml += `<div class="no-det">Kusur tespit edilmedi</div>`;
+  }
+  detsHtml += '</div>';
+
+  /* feedback buttons */
+  const fbDet    = `data-sid="${sessionId}" data-fn="${r.filename}" data-type="wrong_detection"`;
+  const fbStatus = `data-sid="${sessionId}" data-fn="${r.filename}" data-type="wrong_status"`;
+
+  card.innerHTML = `
+    ${imgHtml}
+    <div class="card-body">
+      <div class="card-fname" title="${r.filename}">📁 ${r.filename}</div>
+      <div class="score-row">
+        <div>
+          <span class="score-num ${colorKey}">${r.damage_score}</span>
+          <span class="score-denom">/10</span>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">Hasar Puanı</div>
+        </div>
+        <span class="status-badge ${colorKey}">${r.status_emoji} ${r.status}</span>
+      </div>
+      <div class="score-bar-bg">
+        <div class="score-bar-fill ${colorKey}" style="width:${barPct}%"></div>
+      </div>
+      ${detsHtml}
+      <div class="feedback-row">
+        <button class="btn-fb wrong-det" ${fbDet} onclick="openFb(this,'wrong_detection','${r.filename}','${sessionId}')">
+          ⚑ Yanlış Tespit
+        </button>
+        <button class="btn-fb wrong-status" ${fbStatus} onclick="openFb(this,'wrong_status','${r.filename}','${sessionId}')">
+          🏷 Yanlış Durum
+        </button>
+      </div>
+    </div>`;
+  return card;
+}
+
+/* ── Feedback modal ──────────────────────────────────── */
+function openFb(btn, type, filename, sessionId) {
+  fbMeta = { type, filename, sessionId, btn };
+  const modal    = document.getElementById('fb-modal');
+  const title    = document.getElementById('fb-title');
+  const clsWrap  = document.getElementById('fb-class-wrap');
+  const stWrap   = document.getElementById('fb-status-wrap');
+  document.getElementById('fb-note').value = '';
+  document.getElementById('fb-correct-class').value  = '';
+  document.getElementById('fb-correct-status').value = '';
+
+  if (type === 'wrong_detection') {
+    title.textContent   = '⚑ Yanlış Tespit Bildirimi';
+    clsWrap.style.display = 'block';
+    stWrap.style.display  = 'none';
+  } else {
+    title.textContent   = '🏷 Yanlış Durum Etiketi Bildirimi';
+    clsWrap.style.display = 'none';
+    stWrap.style.display  = 'block';
+  }
+  modal.classList.add('open');
+}
+
+document.getElementById('fb-cancel').addEventListener('click', () => {
+  document.getElementById('fb-modal').classList.remove('open');
+});
+document.getElementById('fb-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('fb-modal'))
+    document.getElementById('fb-modal').classList.remove('open');
+});
+
+document.getElementById('fb-submit').addEventListener('click', async () => {
+  const payload = {
+    session_id:     fbMeta.sessionId,
+    filename:       fbMeta.filename,
+    feedback_type:  fbMeta.type,
+    correct_class:  document.getElementById('fb-correct-class').value  || null,
+    correct_status: document.getElementById('fb-correct-status').value || null,
+    note:           document.getElementById('fb-note').value.trim(),
+  };
+
+  try {
+      const response = await fetch('/feedback', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(
+        data.error || `Geri bildirim kaydedilemedi (${response.status}).`
+      );
+    }
+    document.getElementById('fb-modal').classList.remove('open');
+    if (fbMeta.btn) {
+      fbMeta.btn.classList.add('sent');
+      fbMeta.btn.innerHTML = '✓ Gönderildi';
+    }
+  } catch(e) {
+    alert('Gönderim hatası: ' + e.message);
+  }
+});
+
+/* ── History panel ───────────────────────────────────── */
+const histToggle = document.getElementById('hist-toggle');
+const histPanel  = document.getElementById('hist-panel');
+const histClose  = document.getElementById('hist-close');
+
+histToggle.addEventListener('click', async () => {
+  if (histPanel.classList.contains('open')) {
+    histPanel.classList.remove('open');
+    return;
+  }
+  histPanel.classList.add('open');
+  const list = document.getElementById('hist-list');
+  list.innerHTML = '<div style="padding:16px;font-size:12px;color:var(--text3)">Yükleniyor...</div>';
+  try {
+    const resp = await fetch('/history');
+    const data = await resp.json();
+    if (!data.length) {
+      list.innerHTML = '<div style="padding:16px;font-size:12px;color:var(--text3)">Henüz kayıt yok.</div>';
+      return;
+    }
+    list.innerHTML = data.map(s => `
+      <div class="hist-item">
+        <div>
+          <div class="hist-sid">${s.session_id}</div>
+          <div class="hist-meta">${s.created_at ? s.created_at.slice(0,16).replace('T',' ') : '—'} &nbsp;|&nbsp; conf: ${s.conf_threshold}</div>
+        </div>
+        <span class="hist-badge">${s.image_count} görüntü</span>
+      </div>`).join('');
+  } catch(e) {
+    list.innerHTML = `<div style="padding:16px;font-size:12px;color:var(--red)">${e.message}</div>`;
+  }
+});
+histClose.addEventListener('click', () => histPanel.classList.remove('open'));
+
+/* ── Lightbox ────────────────────────────────────────── */
+function openLb(src) {
+  document.getElementById('lb-img').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+document.getElementById('lb-close').addEventListener('click', () => {
+  document.getElementById('lightbox').classList.remove('open');
+  document.getElementById('lb-img').src = '';
+});
+document.getElementById('lightbox').addEventListener('click', e => {
+  if (e.target === document.getElementById('lightbox')) {
+    document.getElementById('lightbox').classList.remove('open');
+    document.getElementById('lb-img').src = '';
+  }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.getElementById('lightbox').classList.remove('open');
+    document.getElementById('fb-modal').classList.remove('open');
+    histPanel.classList.remove('open');
+  }
+});
+</script>
+</body>
+</html>
